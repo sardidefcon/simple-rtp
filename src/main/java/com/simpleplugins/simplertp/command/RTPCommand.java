@@ -1,7 +1,7 @@
-package com.sardidefcon.simplertp.command;
+package com.simpleplugins.simplertp.command;
 
-import com.sardidefcon.simplertp.SimpleRTP;
-import com.sardidefcon.simplertp.economy.VaultEconomyHelper;
+import com.simpleplugins.simplertp.SimpleRTP;
+import com.simpleplugins.simplertp.economy.VaultEconomyHelper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.*;
@@ -34,14 +34,35 @@ public class RTPCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!(sender instanceof Player player)) {
-            sendMessage(sender, getMessage("player-only"));
-            return true;
+        Player target;
+        boolean selfTeleport = args.length == 0;
+
+        if (selfTeleport) {
+            if (!(sender instanceof Player player)) {
+                sendMessage(sender, "player-only");
+                return true;
+            }
+            target = player;
+        } else {
+            // /rtp <player>
+            if (sender instanceof Player player && !player.hasPermission("srtp.rtp.others")) {
+                sendMessage(player, "no-permission-others");
+                return true;
+            }
+
+            Player found = Bukkit.getPlayer(args[0]);
+            if (found == null) {
+                sendMessage(sender, "player-not-found");
+                return true;
+            }
+            target = found;
         }
 
-        // No permission
+        Player player = target;
+
+        // No permission on target
         if (!player.hasPermission("srtp.rtp") && !player.hasPermission("srtp.rtp.once")) {
-            sendMessage(player, getMessage("no-permission"));
+            sendMessage(player, "no-permission");
             return true;
         }
 
@@ -53,25 +74,25 @@ public class RTPCommand implements CommandExecutor {
             if (filterEnabled) {
                 List<String> allowed = cfg.getStringList("worlds");
                 String worldList = (allowed != null && !allowed.isEmpty()) ? String.join(", ", allowed) : "";
-                sendMessage(player, getMessage("world-not-allowed").replace("%worlds%", worldList));
+                sendMessage(player, "world-not-allowed", msg -> msg.replace("%worlds%", worldList));
             } else {
-                sendMessage(player, getMessage("world-not-found"));
+                sendMessage(player, "world-not-found");
             }
             return true;
         }
 
-        // Cost (Vault)
+        // Cost (Vault) - only applied when a player teleports themselves, NOT when teleporting others
         FileConfiguration config = plugin.getConfig();
         boolean costEnabled = config.getBoolean("cost-enabled", false);
         double costAmount = config.getDouble("cost-amount", 0);
-        if (costEnabled && costAmount > 0) {
+        if (selfTeleport && costEnabled && costAmount > 0) {
             Object economy = plugin.getEconomyProvider();
             if (economy == null) {
-                sendMessage(player, getMessage("cost-no-vault"));
+                sendMessage(player, "cost-no-vault");
                 return true;
             }
             if (!VaultEconomyHelper.hasEnough(economy, player, costAmount)) {
-                sendMessage(player, getMessage("cost-insufficient").replace("%cost%", String.valueOf(costAmount)));
+                sendMessage(player, "cost-insufficient", msg -> msg.replace("%cost%", String.valueOf(costAmount)));
                 return true;
             }
         }
@@ -81,45 +102,49 @@ public class RTPCommand implements CommandExecutor {
         if (!unlimited) {
             // Only has srtp.rtp.once: check if already used
             if (hasUsedRTPOnce(player)) {
-                sendMessage(player, getMessage("used-once"));
+                sendMessage(player, "used-once");
                 return true;
             }
         }
 
         int cooldownSeconds = plugin.getConfig().getInt("cooldown", 0);
-        if (cooldownSeconds > 0) {
+        // Cooldown only applies when a player teleports themselves
+        if (selfTeleport && cooldownSeconds > 0) {
             Long endAt = cooldownEndByUuid.get(player.getUniqueId());
             long now = System.currentTimeMillis();
             if (endAt != null && now < endAt) {
                 long remaining = (endAt - now) / 1000;
-                sendMessage(player, getMessage("cooldown").replace("%seconds%", String.valueOf(remaining)));
+                sendMessage(player, "cooldown", msg -> msg.replace("%seconds%", String.valueOf(remaining)));
                 return true;
             }
         }
 
         int radius = plugin.getConfig().getInt("radius", 1000);
 
-        sendMessage(player, getMessage("teleporting"));
+        sendMessage(player, "teleporting");
 
-        Location target = findSafeLocation(world, radius);
-        if (target == null) {
-            sendMessage(player, getMessage("failed"));
+        Location targetLocation = findSafeLocation(player, world, radius);
+        if (targetLocation == null) {
+            sendMessage(player, "failed");
             return true;
         }
 
-        final double costToDeduct = costEnabled && costAmount > 0 ? costAmount : 0;
+        final double costToDeduct = (selfTeleport && costEnabled && costAmount > 0) ? costAmount : 0;
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (costToDeduct > 0) {
                 Object economy = plugin.getEconomyProvider();
                 if (economy != null && !VaultEconomyHelper.withdraw(economy, player, costToDeduct)) {
-                    sendMessage(player, getMessage("failed"));
+                    sendMessage(player, "failed");
                     return;
                 }
             }
-            player.teleport(target);
-            sendMessage(player, getMessage("success"));
+            player.teleport(targetLocation);
 
-            if (cooldownSeconds > 0) {
+            playTeleportSound(player);
+            sendMessage(player, "success");
+
+            // Only set cooldown when the player teleports themselves
+            if (selfTeleport && cooldownSeconds > 0) {
                 cooldownEndByUuid.put(player.getUniqueId(), System.currentTimeMillis() + cooldownSeconds * 1000L);
             }
             if (!unlimited) {
@@ -156,11 +181,24 @@ public class RTPCommand implements CommandExecutor {
      * Finds a safe location within the radius. The player always spawns on top of a solid block
      * (feet in the air block above ground), never floating in the air.
      */
-    private Location findSafeLocation(World world, int radius) {
-        int minX = -radius;
-        int maxX = radius;
-        int minZ = -radius;
-        int maxZ = radius;
+    private Location findSafeLocation(Player player, World world, int radius) {
+        int centerX;
+        int centerZ;
+
+        String from = plugin.getConfig().getString("rtp-from", "center");
+        if ("player".equalsIgnoreCase(from)) {
+            Location loc = player.getLocation();
+            centerX = loc.getBlockX();
+            centerZ = loc.getBlockZ();
+        } else {
+            centerX = 0;
+            centerZ = 0;
+        }
+
+        int minX = centerX - radius;
+        int maxX = centerX + radius;
+        int minZ = centerZ - radius;
+        int maxZ = centerZ + radius;
 
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             int x = minX + random.nextInt(maxX - minX + 1);
@@ -227,11 +265,67 @@ public class RTPCommand implements CommandExecutor {
         return plugin.getConfig().getString("messages." + key, "&7[" + key + "]");
     }
 
-    private void sendMessage(CommandSender sender, String raw) {
+    private void sendMessage(CommandSender sender, String key) {
+        sendMessage(sender, key, msg -> msg);
+    }
+
+    private void sendMessage(CommandSender sender, String key, java.util.function.UnaryOperator<String> transformer) {
+        String raw = getMessage(key);
+        raw = transformer.apply(raw);
+
+        boolean useActionBar = shouldUseActionBar(sender, key);
+
         String prefix = getPrefix();
-        String text = (prefix != null && !prefix.isEmpty()) ? prefix + raw : raw;
+        String text = raw;
+        // Only add prefix for chat messages; action bar messages are sent without prefix
+        if (!useActionBar && prefix != null && !prefix.isEmpty()) {
+            text = prefix + raw;
+        }
+
         text = text.replace('&', '\u00A7');
         Component component = LegacyComponentSerializer.legacySection().deserialize(text);
-        sender.sendMessage(component);
+
+        if (useActionBar && sender instanceof Player player) {
+            player.sendActionBar(component);
+        } else {
+            sender.sendMessage(component);
+        }
+    }
+
+    private boolean shouldUseActionBar(CommandSender sender, String key) {
+        if (!(sender instanceof Player)) {
+            return false;
+        }
+        String mode = plugin.getConfig().getString("message-delivery", "chat");
+        if (!"action_bar".equalsIgnoreCase(mode) && !"action-bar".equalsIgnoreCase(mode)) {
+            return false;
+        }
+        // Only these keys are eligible for action bar
+        return key.equals("success")
+                || key.equals("failed")
+                || key.equals("used-once")
+                || key.equals("cooldown");
+    }
+
+    private void playTeleportSound(Player player) {
+        FileConfiguration config = plugin.getConfig();
+        if (!config.getBoolean("makesound", false)) {
+            return;
+        }
+        String soundKey = config.getString("sound", "entity.enderman.teleport");
+        if (soundKey == null || soundKey.isEmpty()) {
+            return;
+        }
+
+        // Convert a namespaced id like "entity.enderman.teleport" to a Bukkit Sound enum name.
+        // Example: "entity.enderman.teleport" -> "ENTITY_ENDERMAN_TELEPORT"
+        String enumName = soundKey.toUpperCase(Locale.ROOT).replace('.', '_');
+        try {
+            Sound sound = Sound.valueOf(enumName);
+            player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+        } catch (IllegalArgumentException ex) {
+            // Invalid or unsupported sound; ignore silently.
+        }
     }
 }
+

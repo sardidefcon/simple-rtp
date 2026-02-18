@@ -1,4 +1,4 @@
-com/sardidefcon/simplertp/command/RTPCommand.class
-com/sardidefcon/simplertp/command/SrtpCommand.class
-com/sardidefcon/simplertp/economy/VaultEconomyHelper.class
-com/sardidefcon/simplertp/SimpleRTP.class
+com/simpleplugins/simplertp/economy/VaultEconomyHelper.class
+com/simpleplugins/simplertp/command/RTPCommand.class
+com/simpleplugins/simplertp/command/SrtpCommand.class
+com/simpleplugins/simplertp/SimpleRTP.class

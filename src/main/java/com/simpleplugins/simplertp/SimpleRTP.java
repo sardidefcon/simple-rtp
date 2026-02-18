@@ -1,20 +1,27 @@
-package com.sardidefcon.simplertp;
+package com.simpleplugins.simplertp;
 
-import com.sardidefcon.simplertp.command.RTPCommand;
-import com.sardidefcon.simplertp.command.SrtpCommand;
+import com.simpleplugins.simplertp.command.RTPCommand;
+import com.simpleplugins.simplertp.command.SrtpCommand;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class SimpleRTP extends JavaPlugin {
 
     private Object economyProvider;
+    private Metrics metrics;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         refreshEconomy();
+
+        // bStats metrics
+        int pluginId = 29587;
+        metrics = new Metrics(this, pluginId);
+
         getCommand("rtp").setExecutor(new RTPCommand(this));
         getCommand("srtp").setExecutor(new SrtpCommand(this));
     }
@@ -55,3 +62,4 @@ public final class SimpleRTP extends JavaPlugin {
         return economyProvider;
     }
 }
+

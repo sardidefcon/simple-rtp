@@ -1,4 +1,4 @@
-package com.sardidefcon.simplertp.economy;
+package com.simpleplugins.simplertp.economy;
 
 import org.bukkit.OfflinePlayer;
 
@@ -54,3 +54,4 @@ public final class VaultEconomyHelper {
         }
     }
 }
+

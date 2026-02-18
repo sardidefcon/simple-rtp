@@ -13,7 +13,15 @@ world-filter-enabled: false
 worlds:
   - "world"
 
-# Radius of the area from 0,0 (in blocks). Teleportation will be within [-radius, radius] on X and Z
+# Where to center the RTP radius.
+# Allowed values:
+# - "center": use coordinates 0,0 as center.
+# - "player": use the player's current location as center.
+rtp-from: "center"
+
+# Radius of the area (in blocks).
+# If rtp-from is "center", teleportation will be within [-radius, radius] on X and Z from 0,0.
+# If rtp-from is "player", teleportation will be within [-radius, radius] on X and Z from the player's position.
 radius: 1000
 
 # Cooldown in seconds before /rtp can be used again. 0 = no cooldown
@@ -23,6 +31,17 @@ cooldown: 0
 # If true, the player must pay cost-amount to use /rtp.
 cost-enabled: false
 cost-amount: 100.0
+
+# --- Teleport sound ---
+# If true, a sound will be played when the player is successfully teleported.
+makesound: false
+# Namespaced sound key to play (Minecraft sound id, not Bukkit enum).
+# Default is the Enderman teleport sound: "entity.enderman.teleport".
+sound: "entity.enderman.teleport"
+
+# How to deliver certain RTP messages to players.
+# Allowed values: "chat" (default) or "action_bar".
+message-delivery: "chat"
 
 # Messages (support color codes with &)
 messages:
@@ -44,3 +63,6 @@ messages:
 
   player-only: "&cThis command can only be executed by a player"
   reload-success: "&aConfiguration reloaded"
+
+  player-not-found: "&cThat player could not be found"
+  no-permission-others: "&cYou do not have permission to teleport other players"

@@ -1,6 +1,6 @@
 name: SimpleRTP
-version: 1.0.0
-main: com.simplertp.SimpleRTP
+version: 1.1.0
+main: com.simpleplugins.simplertp.SimpleRTP
 api-version: '1.21'
 author: sardidefcon
 description: Simple Random Teleport within a configurable radius
@@ -20,6 +20,9 @@ permissions:
   srtp.rtp.once:
     description: Allows using /rtp only once (obsolete if you have srtp.rtp)
     default: false
+  srtp.rtp.others:
+    description: Allows using /rtp on other players
+    default: op
   srtp.reload:
     description: Allows reloading the configuration with /srtp reload
     default: op
