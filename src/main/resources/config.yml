@@ -3,6 +3,9 @@
 # Developed by sardidefcon
 ##############################
 
+# If true, checks Modrinth for new plugin versions on startup
+check-updates: true
+
 # Prefix prepended to plugin messages. Empty string = no prefix
 prefix: "&7[&6SimpleRTP&7] &r"
 

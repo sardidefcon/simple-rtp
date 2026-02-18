@@ -24,6 +24,10 @@ public final class SimpleRTP extends JavaPlugin {
 
         getCommand("rtp").setExecutor(new RTPCommand(this));
         getCommand("srtp").setExecutor(new SrtpCommand(this));
+
+        if (getConfig().getBoolean("check-updates", true)) {
+            new UpdateChecker(this).checkAsync();
+        }
     }
 
     /**

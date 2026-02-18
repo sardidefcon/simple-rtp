@@ -53,7 +53,7 @@ mvn clean package
 
 The plugin JAR will be generated at:
 
-`target/SimpleRTP-1.1.0.jar`
+`target/SimpleRTP-1.1.2.jar`
 
 ## Installation
 
