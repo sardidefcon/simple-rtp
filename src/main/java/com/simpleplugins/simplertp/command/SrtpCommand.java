@@ -1,5 +1,6 @@
 package com.simpleplugins.simplertp.command;
 
+import com.simpleplugins.simplertp.ConfigUpdater;
 import com.simpleplugins.simplertp.SimpleRTP;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -23,6 +24,7 @@ public class SrtpCommand implements CommandExecutor {
             plugin.sendConfigMessage(sender, "reload-no-permission");
             return true;
         }
+        ConfigUpdater.mergeWithDefaults(plugin);
         plugin.reloadConfig();
         plugin.refreshEconomy();
         plugin.sendConfigMessage(sender, "reload-success");

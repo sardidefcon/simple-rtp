@@ -16,6 +16,7 @@ public final class SimpleRTP extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        ConfigUpdater.mergeWithDefaults(this);
         refreshEconomy();
 
         // bStats metrics
